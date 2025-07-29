@@ -1,0 +1,61 @@
+Table - 01
+ZKT_EMP_EXP
+MANDT	MANDT	CLNT	3	0	0	Client
+EMPID	ZZEMPID	CHAR	10	0	0	(cbd) employee id
+SNO	SNO	NUMC	4	0	0	Sequence number of schema step in billing schema
+COMPANY	P20_BETXT	CHAR	25	0	0	Name of company part
+FDATE	SYDATUM	DATS	8	0	0	System Date
+TDATE	SYDATUM	DATS	8	0	0	System Date
+DESINATION	CHAR20	CHAR	20	0	0	Char 20
+CTC	DMBTR	CURR	23	2	0	Amount in local currency
+MARK	FLAG	CHAR	1	0	0	General Flag
+
+
+Table - 02
+ZKT_EMP_FAMILY
+MANDT	MANDT	CLNT	3	0	0	Client	                              
+EMPID	ZZEMPID	CHAR	10	0	0	(cbd) employee id	                              
+RELATIONSHIP	ZRELATIONSHIP	CHAR	10	0	0	(cbd) realtion to employee	                              
+NAME	NAME1_GP	CHAR	35	0	0	Name 1	                              
+GENDER	ZGENDER	CHAR	1	0	0	Gender of Employee	                              
+DOB	SYDATUM	DATS	8	0	0	System Date	                              
+AGE	CMP_NOYRS	NUMC	2	0	0	Length of Employment Period (Number of Years)	                              
+
+
+Table - 03
+ZKT_EMP_MASTER
+MANDT	MANDT	CLNT	3	0	0	Client
+EMPID	ZZEMPID	CHAR	10	0	0	(cbd) employee id
+TITLE	CHAR5	CHAR	5	0	0	R/2 table
+FIRST_NAME	NAME1	CHAR	30	0	0	Name
+MIDDLE_NAME	NAME2	CHAR	30	0	0	Name 2
+LAST_NAME	NAME3_GP	CHAR	35	0	0	Name 3
+SPOUSE	NAME1_GP	CHAR	35	0	0	Name 1
+EMAIL1	CHAR75	CHAR	75	0	0	Char75
+EMAIL2	CHAR75	CHAR	75	0	0	Char75
+MOBILE1	CHAR15	CHAR	15	0	0	Char 15
+MANDT	MANDT	CLNT	3	0	0	Client
+EMPID	ZZEMPID	CHAR	10	0	0	(cbd) employee id
+TITLE	CHAR5	CHAR	5	0	0	R/2 table
+FIRST_NAME	NAME1	CHAR	30	0	0	Name
+MIDDLE_NAME	NAME2	CHAR	30	0	0	Name 2
+LAST_NAME	NAME3_GP	CHAR	35	0	0	Name 3
+SPOUSE	NAME1_GP	CHAR	35	0	0	Name 1
+EMAIL1	CHAR75	CHAR	75	0	0	Char75
+EMAIL2	CHAR75	CHAR	75	0	0	Char75
+MOBILE1	CHAR15	CHAR	15	0	0	Char 15
+AREA	CHAR20	CHAR	20	0	0	Char 20
+PIN	CHAR6	CHAR	6	0	0	Character field of length 6
+MARITAL_STATUS	ZMARITAL_STATUS	CHAR	1	0	0	(cbd) zkt_emp_master marital stats
+DOJ	SYDATUM	DATS	8	0	0	System Date
+DESIGNATION	CHAR15	CHAR	15	0	0	Char 15
+DEPARTMENT	CHAR15	CHAR	15	0	0	Char 15
+REPORTINGTO	LIFNR	CHAR	10	0	0	Account Number of Supplier
+QUALIFICATION	CHAR20	CHAR	20	0	0	Char 20
+CTC	DMBTR	CURR	23	2	0	Amount in local currency
+MANAGER	CHAR1	CHAR	1	0	0	Single-Character Flag
+CREATEDBY	SYUNAME	CHAR	12	0	0	User Name
+BLOODGROUP	ZBLOODGROUP	CHAR	5	0	0	(cbd)blood group emp_master
+CREATEDON	SYDATUM	DATS	8	0	0	System Date
+CREATEDAT	SYUZEIT	TIMS	6	0	0	System Time
+GENDER	CHAR1	CHAR	1	0	0	Single-Character Flag

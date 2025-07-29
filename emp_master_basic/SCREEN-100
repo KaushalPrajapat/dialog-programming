@@ -1,0 +1,19 @@
+PROCESS BEFORE OUTPUT.
+  MODULE status_0100.
+*
+PROCESS AFTER INPUT.
+
+  CHAIN.
+    FIELD:  zkt_emp_master-pan,
+            zkt_emp_master-spouse,
+            zkt_emp_master-doj.
+    MODULE field_validation.
+  ENDCHAIN.
+  MODULE user_command_0100.
+  MODULE exit AT EXIT-COMMAND.
+
+PROCESS ON VALUE-REQUEST.
+  FIELD: zkt_emp_master-reportingto MODULE f4_for_reportingto.
+
+PROCESS ON HELP-REQUEST.
+  FIELD: zkt_emp_master-manager MODULE f1_for_manager.

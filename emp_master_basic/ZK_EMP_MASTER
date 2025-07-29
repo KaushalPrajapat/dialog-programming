@@ -1,0 +1,955 @@
+REPORT zk_emp_master NO STANDARD PAGE HEADING.
+
+TABLES : zkt_emp_master, zkt_emp_family, zkt_emp_exp.
+
+TYPES: BEGIN OF ty_family.
+         INCLUDE STRUCTURE zkt_emp_family.
+TYPES: mark,
+       END OF ty_family.
+
+DATA: zkt_emp_master_o TYPE zkt_emp_master.
+
+DATA: r_male, r_female, r_unknown.
+DATA : gv_id     TYPE vrm_id,
+       gt_values TYPE vrm_values,
+       gs_values LIKE LINE OF gt_values,
+       gv_init.
+
+DATA: gname       TYPE seqg3-gname,
+      garg        TYPE seqg3-garg,
+      enq         TYPE TABLE OF seqg3,
+      msg         TYPE string,
+      gv_curser   TYPE char50,
+      lv_response.
+
+DATA: lt_line TYPE STANDARD TABLE OF tline INITIAL SIZE 1,
+      ls_line TYPE tline.
+
+DATA: flag_again.
+
+DATA: lt_family_o  TYPE STANDARD TABLE OF ty_family,
+      lt_family    TYPE STANDARD TABLE OF ty_family,
+      ls_family    TYPE ty_family,
+      lt_emp_exp   TYPE STANDARD TABLE OF zkt_emp_exp,
+      lt_emp_exp_o TYPE STANDARD TABLE OF zkt_emp_exp,
+      ls_emp_exp   TYPE zkt_emp_exp.
+
+
+DATA: lv_field(30),
+      lv_value(30),
+      lv_line TYPE i.
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC1' ITSELF
+CONTROLS: tc1 TYPE TABLEVIEW USING SCREEN 0200.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC1'
+DATA:     g_tc1_lines  LIKE sy-loopc.
+
+DATA:     box_family LIKE sy-ucomm.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-000.
+  PARAMETERS: p_empid TYPE zkt_emp_master-empid.
+SELECTION-SCREEN END OF BLOCK b1.
+
+START-OF-SELECTION.
+**LOCK OBJECT**
+  CALL FUNCTION 'ENQUEUE_EZK_EMP_MASTER'
+    EXPORTING
+      mode_zkt_emp_master = 'E'
+      mandt               = sy-mandt
+      empid               = p_empid
+    EXCEPTIONS
+      foreign_lock        = 1
+      system_failure      = 2
+      OTHERS              = 3.
+  IF sy-subrc <> 0.
+    garg = |{ sy-mandt }{ p_empid }|.
+    CALL FUNCTION 'ENQUEUE_READ'
+      EXPORTING
+        gclient               = sy-mandt
+        gname                 = 'ZKT_EMP_MASTER'
+      TABLES
+        enq                   = enq
+      EXCEPTIONS
+        communication_failure = 1
+        system_failure        = 2
+        OTHERS                = 3.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    DATA(user) = enq[ gmode = 'E' ]-guname.
+    msg = |'Object is curretly locked by ' { user }|.
+    MESSAGE: msg TYPE 'E'.
+  ELSE.
+    IF p_empid IS INITIAL.
+      CALL FUNCTION 'NUMBER_GET_NEXT'
+        EXPORTING
+          nr_range_nr = '01'
+          object      = 'ZKEMP'
+        IMPORTING
+          number      = zkt_emp_master-empid.
+      IF sy-subrc <> 0.
+      ENDIF.
+    ELSE.
+      SELECT SINGLE * FROM zkt_emp_master INTO @zkt_emp_master WHERE empid = @p_empid.
+      zkt_emp_master-empid = p_empid.
+      zkt_emp_master_o = zkt_emp_master.
+      IF zkt_emp_master-gender = 1.
+        r_male = 'X'.
+      ELSEIF zkt_emp_master-gender = 2.
+        r_female = 'X'.
+      ELSE.
+        r_unknown = 'X'.
+      ENDIF.
+    ENDIF.
+    CALL SCREEN 100.
+    CALL FUNCTION 'DEQUEUE_EZK_EMP_MASTER'
+      EXPORTING
+        mode_zkt_emp_master = 'E'
+        mandt               = sy-mandt
+        empid               = p_empid.
+  ENDIF.
+
+END-OF-SELECTION.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+  SET PF-STATUS 'PF1'.
+  SET TITLEBAR 'T1'.
+  IF gv_init IS INITIAL.
+    PERFORM set_list_values.
+    gv_init = 'X'.
+  ENDIF.
+  PERFORM hide_if_need.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  EXIT  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE exit INPUT.
+  LEAVE TO SCREEN 0.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  CASE sy-ucomm.
+    WHEN 'BACK' OR 'CANCEL' OR 'EXIT'.
+      IF zkt_emp_master_o NE zkt_emp_master
+        OR lt_family NE lt_family_o
+        OR lt_emp_exp NE lt_emp_exp_o.
+        CALL FUNCTION 'POPUP_TO_CONFIRM'
+          EXPORTING
+            titlebar              = 'Wanna Save?'
+            text_question         = 'Do you want to save'
+            text_button_1         = 'Yes'
+            text_button_2         = 'No'
+            default_button        = '1'
+            display_cancel_button = 'X'
+          IMPORTING
+            answer                = lv_response.
+        IF sy-subrc <> 0.
+        ENDIF.
+        IF lv_response NE 1.
+          LEAVE PROGRAM.
+        ENDIF.
+      ELSE.
+        LEAVE PROGRAM.
+      ENDIF.
+      IF lv_response EQ 1.
+        PERFORM save_data.
+      ENDIF.
+
+    WHEN '&DATA_SAVE' .
+      PERFORM save_data.
+    WHEN 'STATE'.
+      PERFORM get_city.
+    WHEN 'PICK'.
+      GET CURSOR FIELD gv_curser.
+      IF gv_curser = 'ZKT_EMP_MASTER-EMPID'.
+        CALL TRANSACTION 'SE11'.
+      ELSEIF gv_curser = 'ZKT_EMP_MASTER-PAN'.
+        CALL FUNCTION 'CALL_BROWSER'
+          EXPORTING
+            url = 'https://www.google.com/'.
+        IF sy-subrc <> 0.
+        ENDIF.
+
+      ENDIF.
+    WHEN 'FAMILYM'.
+      IF flag_again IS INITIAL.
+        SELECT * FROM zkt_emp_family INTO
+          CORRESPONDING FIELDS OF TABLE
+          @lt_family WHERE empid = @p_empid.
+
+        SELECT * FROM zkt_emp_exp INTO
+          CORRESPONDING FIELDS OF TABLE
+          @lt_emp_exp WHERE empid = @p_empid.
+
+        flag_again = 'X'.
+        lt_family_o = lt_family.
+        lt_emp_exp_o = lt_emp_exp.
+
+      ENDIF.
+
+
+      CALL SCREEN 200.
+*        call SCREEN 0200 STARTING AT 5 10.
+  ENDCASE.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+FORM save_data.
+  DELETE lt_family WHERE relationship IS INITIAL.
+  DELETE lt_emp_exp WHERE company IS INITIAL AND sno IS INITIAL.
+  IF zkt_emp_master NE zkt_emp_master_o.
+    IF r_male IS NOT INITIAL.
+      zkt_emp_master-gender = 1.
+    ELSEIF r_female IS NOT INITIAL.
+      zkt_emp_master-gender = 2.
+    ELSE.
+      zkt_emp_master-gender = 0.
+    ENDIF.
+    zkt_emp_master-createdby = sy-uname.
+    zkt_emp_master-createdon = sy-datum.
+    zkt_emp_master-createdat = sy-uzeit.
+    MODIFY zkt_emp_master FROM zkt_emp_master.
+  ENDIF.
+
+
+  IF lt_family[] IS NOT INITIAL AND lt_family[] NE lt_family_o[].
+    CLEAR: zkt_emp_family.
+    LOOP AT lt_family INTO ls_family.
+      MOVE-CORRESPONDING ls_family TO zkt_emp_family.
+      zkt_emp_family-empid = zkt_emp_master-empid.
+      IF zkt_emp_family-dob IS NOT INITIAL AND zkt_emp_family-age IS INITIAL.
+        CALL FUNCTION 'HRCM_TIME_PERIOD_CALCULATE'
+          EXPORTING
+            begda         = zkt_emp_family-dob
+            endda         = sy-datum
+          IMPORTING
+            noyrs         = zkt_emp_family-age
+*           NOMNS         =
+*           NODYS         =
+          EXCEPTIONS
+            invalid_dates = 1
+            overflow      = 2
+            OTHERS        = 3.
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+      ENDIF.
+      MODIFY zkt_emp_family.
+    ENDLOOP.
+  ENDIF.
+  IF lt_emp_exp IS NOT INITIAL AND lt_emp_exp[] NE lt_emp_exp_o.
+    CLEAR zkt_emp_exp.
+    LOOP AT lt_emp_exp INTO ls_emp_exp.
+      MOVE-CORRESPONDING ls_emp_exp TO zkt_emp_exp.
+      zkt_emp_exp-empid = zkt_emp_master-empid.
+      MODIFY zkt_emp_exp.
+    ENDLOOP.
+  ENDIF.
+  zkt_emp_master_o = zkt_emp_master.
+  lt_family_o = lt_family.
+  lt_emp_exp_o = lt_emp_exp.
+  DATA(msg) = |'Records with id' { zkt_emp_master-empid } updated or saved successfully|.
+  MESSAGE  msg TYPE 'I'.
+  LEAVE PROGRAM.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+FORM set_list_values .
+  CLEAR : gt_values[].
+
+  gs_values-key = 'Mr.'.
+  APPEND gs_values TO gt_values.
+  gs_values-key = 'Mrs.'.
+  APPEND gs_values TO gt_values.
+  gs_values-key = 'Ms.'.
+  APPEND gs_values TO gt_values.
+  gs_values-key = 'Company'.
+  APPEND gs_values TO gt_values.
+
+
+  gv_id = 'ZKT_EMP_MASTER-TITLE'.
+
+  CALL FUNCTION 'VRM_SET_VALUES'
+    EXPORTING
+      id              = gv_id
+      values          = gt_values
+    EXCEPTIONS
+      id_illegal_name = 1
+      OTHERS          = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+  CLEAR : gt_values[].
+  gv_id = 'ZKT_EMP_MASTER-STATE'.
+  SELECT DISTINCT state FROM zkt_state INTO TABLE @gt_values[].
+  CALL FUNCTION 'VRM_SET_VALUES'
+    EXPORTING
+      id              = gv_id
+      values          = gt_values
+    EXCEPTIONS
+      id_illegal_name = 1
+      OTHERS          = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+  PERFORM get_city.
+ENDFORM.
+*&---------------------------------------------------------------------*
+FORM get_city .
+  CLEAR : gt_values[], zkt_emp_master-city.
+  IF zkt_emp_master-state IS NOT INITIAL.
+    gv_id = 'ZKT_EMP_MASTER-CITY'.
+    SELECT DISTINCT city FROM zkt_state INTO TABLE @gt_values[] WHERE state = @zkt_emp_master-state.
+    CALL FUNCTION 'VRM_SET_VALUES'
+      EXPORTING
+        id              = gv_id
+        values          = gt_values
+      EXCEPTIONS
+        id_illegal_name = 1
+        OTHERS          = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+FORM hide_if_need.
+  IF zkt_emp_master-marital_status NE 'M'.
+    CLEAR : zkt_emp_master-spouse.
+    LOOP AT SCREEN.
+      IF screen-group1 = 'HD1'.
+        screen-input = 0.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Module  FIELD_VALIDATION  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE field_validation INPUT.
+  CASE sy-ucomm.
+    WHEN '&DATA_SAVE' OR ' '.
+      IF zkt_emp_master-pan IS INITIAL.
+        MESSAGE: 'Pan Card field is mandatory.' TYPE 'E'.
+      ELSE.
+        IF strlen( zkt_emp_master-pan ) NE 10 .
+          MESSAGE: 'Pan Card field length should be 10 only.' TYPE 'E'.
+        ENDIF.
+      ENDIF.
+
+      IF zkt_emp_master-marital_status = 'M' AND zkt_emp_master-spouse IS INITIAL.
+        MESSAGE : 'Spouse name is mandatory.' TYPE 'E'.
+      ENDIF.
+      IF zkt_emp_master-doj IS INITIAL.
+        MESSAGE : 'Date of joining is mandatory' TYPE 'E'.
+      ENDIF.
+    WHEN OTHERS.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  F1_FOR_MANAGER  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE f1_for_manager INPUT.
+  CLEAR: lt_line[], ls_line.
+
+  ls_line-tdformat = '*'.
+  ls_line-tdline = 'H1 Help for field Manager'.
+  APPEND ls_line TO lt_line.
+  CLEAR ls_line.
+  ls_line-tdline = 'Is this second line'.
+  APPEND ls_line TO lt_line.
+  CALL FUNCTION 'COPO_POPUP_TO_DISPLAY_TEXTLIST'
+    EXPORTING
+*     TASK       = 'DISPLAY'
+      titel      = 'H1 for manager'
+    TABLES
+      text_table = lt_line.
+  .
+
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  F4_FOR_REPORTINGTO  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE f4_for_reportingto INPUT.
+
+  SELECT empid, first_name AS name
+    FROM zkt_emp_master WHERE manager = 'X' INTO TABLE @DATA(lt_managers).
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield        = 'EMPID'
+      dynpprog        = sy-cprog
+      dynpnr          = sy-dynnr
+      dynprofield     = 'ZKT_EMP_MASTER-REPORTINGTO'
+      value_org       = 'S'
+    TABLES
+      value_tab       = lt_managers
+    EXCEPTIONS
+      parameter_error = 1
+      no_values_found = 2
+      OTHERS          = 3.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0200 OUTPUT.
+  SET PF-STATUS 'PF2'.
+  SET TITLEBAR 'T2'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0200 INPUT.
+  CASE sy-ucomm.
+    WHEN 'BACK'  OR 'CANCEL'.
+      LEAVE TO SCREEN 100.
+    WHEN 'EXIT'.
+      LEAVE TO SCREEN 0.
+    WHEN 'DCLICK'.
+      GET CURSOR FIELD lv_field LINE lv_line.
+      IF lv_field = 'LS_FAMILY-NAME' AND lv_line IS NOT INITIAL.
+        TRY.
+            ls_family = lt_family[ lv_line ].
+          CATCH cx_root.
+        ENDTRY.
+        MESSAGE : |{ ls_family-name } is { ls_family-relationship }| TYPE 'I'.
+      ENDIF.
+
+      IF lv_field = 'LS_EMP_EXP-COMPANY' AND lv_line IS NOT INITIAL.
+        TRY.
+            ls_emp_exp = lt_emp_exp[ lv_line ].
+          CATCH cx_root.
+        ENDTRY.
+        MESSAGE : |Last work place - { ls_emp_exp-company }| TYPE 'I'.
+      ENDIF.
+
+    WHEN OTHERS.
+      CLEAR ls_family.
+      IF lt_family[] IS NOT INITIAL AND lt_family NE lt_family_o.
+        LOOP AT lt_family INTO ls_family.
+          IF ls_family-dob IS INITIAL OR ls_family-age IS NOT INITIAL.
+          ELSE.
+            CALL FUNCTION 'HRCM_TIME_PERIOD_CALCULATE'
+              EXPORTING
+                begda = ls_family-dob
+                endda = sy-datum
+              IMPORTING
+                noyrs = ls_family-age
+*               NOMNS =
+*               NODYS =
+*               EXCEPTIONS
+*               INVALID_DATES       = 1
+*               OVERFLOW            = 2
+*               OTHERS              = 3
+              .
+            IF sy-subrc <> 0.
+            ENDIF.
+            MODIFY lt_family FROM ls_family TRANSPORTING age.
+
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+  ENDCASE.
+ENDMODULE.
+
+
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: UPDATE LINES FOR EQUIVALENT SCROLLBAR
+MODULE tc1_change_tc_attr OUTPUT.
+  DESCRIBE TABLE lt_family LINES tc1-lines.
+  IF lt_family IS INITIAL.
+    DO 4 TIMES.
+      APPEND INITIAL LINE TO lt_family.
+    ENDDO.
+  ENDIF.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: GET LINES OF TABLECONTROL
+MODULE tc1_get_lines OUTPUT.
+  g_tc1_lines = sy-loopc.
+*****  MODIFY SCREEN IF FATHER/BROTHER then diable field gender assigning 'M'
+*****  same for Mother/Sister
+
+  IF ls_family-relationship = 'FATHER' OR ls_family-relationship = 'BROTHER'.
+    LOOP AT SCREEN.
+      IF screen-name = 'LS_FAMILY-GENDER'.
+        ls_family-gender = 'M'.
+        screen-input = 0.
+        MODIFY SCREEN .
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+  IF ls_family-relationship = 'MOTHER' OR ls_family-relationship = 'SISTER'.
+    LOOP AT SCREEN.
+      IF screen-name = 'LS_FAMILY-GENDER'.
+        ls_family-gender = 'F'.
+        screen-input = 0.
+        MODIFY SCREEN .
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MODIFY TABLE
+MODULE tc1_modify INPUT.
+  MODIFY lt_family
+    FROM ls_family
+    INDEX tc1-current_line.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODUL FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MARK TABLE
+MODULE tc1_mark INPUT.
+  DATA: g_TC1_wa2 LIKE LINE OF lt_family.
+  IF tc1-line_sel_mode = 1
+  AND ls_family-mark = 'X'.
+    LOOP AT lt_family INTO g_TC1_wa2
+      WHERE mark = 'X'.
+      g_TC1_wa2-mark = ''.
+      MODIFY lt_family
+        FROM g_TC1_wa2
+        TRANSPORTING mark.
+    ENDLOOP.
+  ENDIF.
+  MODIFY lt_family
+    FROM ls_family
+    INDEX tc1-current_line
+    TRANSPORTING mark.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: PROCESS USER COMMAND
+MODULE tc1_user_command INPUT.
+  box_family = sy-ucomm.
+  PERFORM user_ok_tc USING    'TC1'
+                              'LT_FAMILY'
+                              'MARK'
+                     CHANGING box_family.
+  sy-ucomm = box_family.
+ENDMODULE.
+
+*----------------------------------------------------------------------*
+*   INCLUDE TABLECONTROL_FORMS                                         *
+*----------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&      Form  USER_OK_TC                                               *
+*&---------------------------------------------------------------------*
+FORM user_ok_tc USING    p_tc_name TYPE dynfnam
+                         p_table_name
+                         p_mark_name
+                CHANGING p_ok      LIKE sy-ucomm.
+
+*&SPWIZARD: BEGIN OF LOCAL DATA----------------------------------------*
+  DATA: l_ok     TYPE sy-ucomm,
+        l_offset TYPE i.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+*&SPWIZARD: Table control specific operations                          *
+*&SPWIZARD: evaluate TC name and operations                            *
+  SEARCH p_ok FOR p_tc_name.
+  IF sy-subrc <> 0.
+    EXIT.
+  ENDIF.
+  l_offset = strlen( p_tc_name ) + 1.
+  l_ok = p_ok+l_offset.
+*&SPWIZARD: execute general and TC specific operations                 *
+  CASE l_ok.
+    WHEN 'INSR'.                      "insert row
+      PERFORM fcode_insert_row USING    p_tc_name
+                                        p_table_name.
+      CLEAR p_ok.
+
+    WHEN 'DELE'.                      "delete row
+      PERFORM fcode_delete_row USING    p_tc_name
+                                        p_table_name
+                                        p_mark_name.
+      CLEAR p_ok.
+
+    WHEN 'P--' OR                     "top of list
+         'P-'  OR                     "previous page
+         'P+'  OR                     "next page
+         'P++'.                       "bottom of list
+      PERFORM compute_scrolling_in_tc USING p_tc_name
+                                            l_ok.
+      CLEAR p_ok.
+*     WHEN 'L--'.                       "total left
+*       PERFORM FCODE_TOTAL_LEFT USING P_TC_NAME.
+*
+*     WHEN 'L-'.                        "column left
+*       PERFORM FCODE_COLUMN_LEFT USING P_TC_NAME.
+*
+*     WHEN 'R+'.                        "column right
+*       PERFORM FCODE_COLUMN_RIGHT USING P_TC_NAME.
+*
+*     WHEN 'R++'.                       "total right
+*       PERFORM FCODE_TOTAL_RIGHT USING P_TC_NAME.
+*
+    WHEN 'MARK'.                      "mark all filled lines
+      PERFORM fcode_tc_mark_lines USING p_tc_name
+                                        p_table_name
+                                        p_mark_name   .
+      CLEAR p_ok.
+
+    WHEN 'DMRK'.                      "demark all filled lines
+      PERFORM fcode_tc_demark_lines USING p_tc_name
+                                          p_table_name
+                                          p_mark_name .
+      CLEAR p_ok.
+
+*     WHEN 'SASCEND'   OR
+*          'SDESCEND'.                  "sort column
+*       PERFORM FCODE_SORT_TC USING P_TC_NAME
+*                                   l_ok.
+
+  ENDCASE.
+
+ENDFORM.                              " USER_OK_TC
+
+*&---------------------------------------------------------------------*
+*&      Form  FCODE_INSERT_ROW                                         *
+*&---------------------------------------------------------------------*
+FORM fcode_insert_row
+              USING    p_tc_name           TYPE dynfnam
+                       p_table_name             .
+
+*&SPWIZARD: BEGIN OF LOCAL DATA----------------------------------------*
+  DATA l_lines_name       LIKE feld-name.
+  DATA l_selline          LIKE sy-stepl.
+  DATA l_lastline         TYPE i.
+  DATA l_line             TYPE i.
+  DATA l_table_name       LIKE feld-name.
+  FIELD-SYMBOLS <tc>                 TYPE cxtab_control.
+  FIELD-SYMBOLS <table>              TYPE STANDARD TABLE.
+  FIELD-SYMBOLS <lines>              TYPE i.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+  ASSIGN (p_tc_name) TO <tc>.
+
+*&SPWIZARD: get the table, which belongs to the tc                     *
+  CONCATENATE p_table_name '[]' INTO l_table_name. "table body
+  ASSIGN (l_table_name) TO <table>.                "not headerline
+
+*&SPWIZARD: get looplines of TableControl                              *
+  CONCATENATE 'G_' p_tc_name '_LINES' INTO l_lines_name.
+  ASSIGN (l_lines_name) TO <lines>.
+
+*&SPWIZARD: get current line                                           *
+  GET CURSOR LINE l_selline.
+*  Commenting some code, So that each new row (+) append in end of table (MDDKDUMMY)
+*  IF sy-subrc <> 0.                   " append line to table """"""""""""""""""MDDKDUMMY
+  l_selline = <tc>-lines + 1.
+*&SPWIZARD: set top line                                               *
+  IF l_selline > <lines>.
+    <tc>-top_line = l_selline - <lines> + 1 .
+  ELSE.
+    <tc>-top_line = 1.
+  ENDIF.
+****************************************************    MDDKDUMMY
+*  ELSE.                               " insert line into table
+*    l_selline = <tc>-top_line + l_selline - 1.
+*    l_lastline = <tc>-top_line + <lines> - 1.
+*  ENDIF.
+****************************************************    MDDKDUMMY
+*&SPWIZARD: set new cursor line                                        *
+  l_line = l_selline - <tc>-top_line + 1.
+
+*&SPWIZARD: insert initial line                                        *
+  INSERT INITIAL LINE INTO <table> INDEX l_selline.
+  <tc>-lines = <tc>-lines + 1.
+*&SPWIZARD: set cursor                                                 *
+  SET CURSOR 1 l_line.
+
+ENDFORM.                              " FCODE_INSERT_ROW
+
+*&---------------------------------------------------------------------*
+*&      Form  FCODE_DELETE_ROW                                         *
+*&---------------------------------------------------------------------*
+FORM fcode_delete_row
+              USING    p_tc_name           TYPE dynfnam
+                       p_table_name
+                       p_mark_name   .
+
+*&SPWIZARD: BEGIN OF LOCAL DATA----------------------------------------*
+  DATA l_table_name       LIKE feld-name.
+
+  FIELD-SYMBOLS <tc>         TYPE cxtab_control.
+  FIELD-SYMBOLS <table>      TYPE STANDARD TABLE.
+  FIELD-SYMBOLS <wa>.
+  FIELD-SYMBOLS <mark_field>.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+  ASSIGN (p_tc_name) TO <tc>.
+
+*&SPWIZARD: get the table, which belongs to the tc                     *
+  CONCATENATE p_table_name '[]' INTO l_table_name. "table body
+  ASSIGN (l_table_name) TO <table>.                "not headerline
+
+*&SPWIZARD: delete marked lines                                        *
+  DESCRIBE TABLE <table> LINES <tc>-lines.
+
+  LOOP AT <table> ASSIGNING <wa>.
+
+*&SPWIZARD: access to the component 'FLAG' of the table header         *
+    ASSIGN COMPONENT p_mark_name OF STRUCTURE <wa> TO <mark_field>.
+
+    IF <mark_field> = 'X'.
+      DELETE <table> INDEX syst-tabix.
+      IF sy-subrc = 0.
+        <tc>-lines = <tc>-lines - 1.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.                              " FCODE_DELETE_ROW
+
+*&---------------------------------------------------------------------*
+*&      Form  COMPUTE_SCROLLING_IN_TC
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_TC_NAME  name of tablecontrol
+*      -->P_OK       ok code
+*----------------------------------------------------------------------*
+FORM compute_scrolling_in_tc USING    p_tc_name
+                                      p_ok.
+*&SPWIZARD: BEGIN OF LOCAL DATA----------------------------------------*
+  DATA l_tc_new_top_line     TYPE i.
+  DATA l_tc_name             LIKE feld-name.
+  DATA l_tc_lines_name       LIKE feld-name.
+  DATA l_tc_field_name       LIKE feld-name.
+
+  FIELD-SYMBOLS <tc>         TYPE cxtab_control.
+  FIELD-SYMBOLS <lines>      TYPE i.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+  ASSIGN (p_tc_name) TO <tc>.
+*&SPWIZARD: get looplines of TableControl                              *
+  CONCATENATE 'G_' p_tc_name '_LINES' INTO l_tc_lines_name.
+  ASSIGN (l_tc_lines_name) TO <lines>.
+
+
+*&SPWIZARD: is no line filled?                                         *
+  IF <tc>-lines = 0.
+*&SPWIZARD: yes, ...                                                   *
+    l_tc_new_top_line = 1.
+  ELSE.
+*&SPWIZARD: no, ...                                                    *
+    CALL FUNCTION 'SCROLLING_IN_TABLE'
+      EXPORTING
+        entry_act      = <tc>-top_line
+        entry_from     = 1
+        entry_to       = <tc>-lines
+        last_page_full = 'X'
+        loops          = <lines>
+        ok_code        = p_ok
+        overlapping    = 'X'
+      IMPORTING
+        entry_new      = l_tc_new_top_line
+      EXCEPTIONS
+*       NO_ENTRY_OR_PAGE_ACT  = 01
+*       NO_ENTRY_TO    = 02
+*       NO_OK_CODE_OR_PAGE_GO = 03
+        OTHERS         = 0.
+  ENDIF.
+
+*&SPWIZARD: get actual tc and column                                   *
+  GET CURSOR FIELD l_tc_field_name
+             AREA  l_tc_name.
+
+  IF syst-subrc = 0.
+    IF l_tc_name = p_tc_name.
+*&SPWIZARD: et actual column                                           *
+      SET CURSOR FIELD l_tc_field_name LINE 1.
+    ENDIF.
+  ENDIF.
+
+*&SPWIZARD: set the new top line                                       *
+  <tc>-top_line = l_tc_new_top_line.
+
+
+ENDFORM.                              " COMPUTE_SCROLLING_IN_TC
+
+*&---------------------------------------------------------------------*
+*&      Form  FCODE_TC_MARK_LINES
+*&---------------------------------------------------------------------*
+*       marks all TableControl lines
+*----------------------------------------------------------------------*
+*      -->P_TC_NAME  name of tablecontrol
+*----------------------------------------------------------------------*
+FORM fcode_tc_mark_lines USING p_tc_name
+                               p_table_name
+                               p_mark_name.
+*&SPWIZARD: EGIN OF LOCAL DATA-----------------------------------------*
+  DATA l_table_name       LIKE feld-name.
+
+  FIELD-SYMBOLS <tc>         TYPE cxtab_control.
+  FIELD-SYMBOLS <table>      TYPE STANDARD TABLE.
+  FIELD-SYMBOLS <wa>.
+  FIELD-SYMBOLS <mark_field>.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+  ASSIGN (p_tc_name) TO <tc>.
+
+*&SPWIZARD: get the table, which belongs to the tc                     *
+  CONCATENATE p_table_name '[]' INTO l_table_name. "table body
+  ASSIGN (l_table_name) TO <table>.                "not headerline
+
+*&SPWIZARD: mark all filled lines                                      *
+  LOOP AT <table> ASSIGNING <wa>.
+
+*&SPWIZARD: access to the component 'FLAG' of the table header         *
+    ASSIGN COMPONENT p_mark_name OF STRUCTURE <wa> TO <mark_field>.
+
+    <mark_field> = 'X'.
+  ENDLOOP.
+ENDFORM.                                          "fcode_tc_mark_lines
+
+*&---------------------------------------------------------------------*
+*&      Form  FCODE_TC_DEMARK_LINES
+*&---------------------------------------------------------------------*
+*       demarks all TableControl lines
+*----------------------------------------------------------------------*
+*      -->P_TC_NAME  name of tablecontrol
+*----------------------------------------------------------------------*
+FORM fcode_tc_demark_lines USING p_tc_name
+                                 p_table_name
+                                 p_mark_name .
+*&SPWIZARD: BEGIN OF LOCAL DATA----------------------------------------*
+  DATA l_table_name       LIKE feld-name.
+
+  FIELD-SYMBOLS <tc>         TYPE cxtab_control.
+  FIELD-SYMBOLS <table>      TYPE STANDARD TABLE.
+  FIELD-SYMBOLS <wa>.
+  FIELD-SYMBOLS <mark_field>.
+*&SPWIZARD: END OF LOCAL DATA------------------------------------------*
+
+  ASSIGN (p_tc_name) TO <tc>.
+
+*&SPWIZARD: get the table, which belongs to the tc                     *
+  CONCATENATE p_table_name '[]' INTO l_table_name. "table body
+  ASSIGN (l_table_name) TO <table>.                "not headerline
+
+*&SPWIZARD: demark all filled lines                                    *
+  LOOP AT <table> ASSIGNING <wa>.
+
+*&SPWIZARD: access to the component 'FLAG' of the table header         *
+    ASSIGN COMPONENT p_mark_name OF STRUCTURE <wa> TO <mark_field>.
+
+    <mark_field> = space.
+  ENDLOOP.
+ENDFORM.                                          "fcode_tc_mark_lines
+*&---------------------------------------------------------------------*
+*&      Module  TC1_VALIDATION  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE tc1_validation INPUT.
+  CASE sy-ucomm.
+    WHEN 'EXIT' OR 'CANCEL' OR 'BACK'.
+      IF ls_family-relationship IS NOT INITIAL.
+        IF ls_family-name IS INITIAL.
+          MESSAGE : 'Please Enter the name of family member' TYPE 'E'.
+        ELSEIF ls_family-dob IS INITIAL.
+          MESSAGE : 'Please fill date of birth field of member' TYPE 'E'.
+        ENDIF.
+      ENDIF.
+    WHEN OTHERS.
+  ENDCASE.
+ENDMODULE.
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC2' ITSELF
+CONTROLS: tc2 TYPE TABLEVIEW USING SCREEN 0200.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC2'
+DATA:     g_tc2_lines  LIKE sy-loopc.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: UPDATE LINES FOR EQUIVALENT SCROLLBAR
+MODULE tc2_change_tc_attr OUTPUT.
+  DESCRIBE TABLE lt_emp_exp LINES tc2-lines.
+  IF lt_emp_exp IS INITIAL.
+    DO 4 TIMES.
+      APPEND INITIAL LINE TO lt_emp_exp.
+    ENDDO.
+  ENDIF.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: GET LINES OF TABLECONTROL
+MODULE tc2_get_lines OUTPUT.
+  g_tc2_lines = sy-loopc.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MODIFY TABLE
+MODULE tc2_modify INPUT.
+  MODIFY lt_emp_exp
+    FROM ls_emp_exp
+    INDEX tc2-current_line.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODUL FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MARK TABLE
+MODULE tc2_mark INPUT.
+  DATA: g_TC2_wa2 LIKE LINE OF lt_emp_exp.
+  IF tc2-line_sel_mode = 1
+  AND ls_emp_exp-mark = 'X'.
+    LOOP AT lt_emp_exp INTO g_TC2_wa2
+      WHERE mark = 'X'.
+      g_TC2_wa2-mark = ''.
+      MODIFY lt_emp_exp
+        FROM g_TC2_wa2
+        TRANSPORTING mark.
+    ENDLOOP.
+  ENDIF.
+  MODIFY lt_emp_exp
+    FROM ls_emp_exp
+    INDEX tc2-current_line
+    TRANSPORTING mark.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: PROCESS USER COMMAND
+MODULE tc2_user_command INPUT.
+  box_family = sy-ucomm.
+  PERFORM user_ok_tc USING    'TC2'
+                              'LT_EMP_EXP'
+                              'MARK'
+                     CHANGING box_family.
+  sy-ucomm = box_family.
+ENDMODULE.
