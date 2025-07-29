@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*& Include ZK_EMP_MASTE_TABSTRIP_TOP
+*&---------------------------------------------------------------------*
+**********************************************
+
+DATA: zkt_emp_master   TYPE zkt_emp_master,
+      zkt_emp_master_o TYPE zkt_emp_master,
+      gv_empid         TYPE zkt_emp_master-empid,
+      lt_family        TYPE STANDARD TABLE OF zkt_emp_family,
+      ls_family        TYPE zkt_emp_family,
+      lt_exp           TYPE STANDARD TABLE OF zkt_emp_exp,
+      ls_exp           TYPE zkt_emp_exp.
+
+
+**********************************************
+
+*&SPWIZARD: FUNCTION CODES FOR TABSTRIP 'TS1'
+CONSTANTS: BEGIN OF c_ts1,
+             tab1 LIKE sy-ucomm VALUE 'TS1_FC1',
+             tab2 LIKE sy-ucomm VALUE 'TS1_FC2',
+             tab3 LIKE sy-ucomm VALUE 'TS1_FC3',
+             tab4 LIKE sy-ucomm VALUE 'TS1_FC4',
+             tab5 LIKE sy-ucomm VALUE 'TS1_FC5',
+             tab6 LIKE sy-ucomm VALUE 'TS1_FC6',
+           END OF c_ts1.
+*&SPWIZARD: DATA FOR TABSTRIP 'TS1'
+CONTROLS:  ts1 TYPE TABSTRIP.
+DATA: BEGIN OF g_ts1,
+        subscreen   LIKE sy-dynnr,
+        prog        LIKE sy-repid VALUE 'ZK_EMP_MASTE_TABSTRIP',
+        pressed_tab LIKE sy-ucomm VALUE c_ts1-tab1,
+      END OF g_ts1.
+DATA:      ok_code LIKE sy-ucomm.
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC1' ITSELF
+CONTROLS: TC1 TYPE TABLEVIEW USING SCREEN 0105.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC1'
+DATA:     G_TC1_LINES  LIKE SY-LOOPC.
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC2' ITSELF
+CONTROLS: TC2 TYPE TABLEVIEW USING SCREEN 0106.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC2'
+DATA:     G_TC2_LINES  LIKE SY-LOOPC.
