@@ -1,0 +1,18 @@
+*&---------------------------------------------------------------------*
+*& Module Pool      ZK_EMP_MASTE_SUBSCREEN
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+
+INCLUDE ZK_EMP_MASTE_SUBSCREEN_TOP              .    " Global Data
+
+* INCLUDE ZK_EMP_MASTE_SUBSCREEN_O01              .  " PBO-Modules
+* INCLUDE ZK_EMP_MASTE_SUBSCREEN_I01              .  " PAI-Modules
+* INCLUDE ZK_EMP_MASTE_SUBSCREEN_F01              .  " FORM-Routines
+
+
+INCLUDE zk_emp_maste_subscreen_pbo.
+
+INCLUDE ZK_EMP_MASTE_SUBSCREEN_PAI.
+
+INCLUDE zk_emp_maste_subscreen_f01.

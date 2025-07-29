@@ -1,0 +1,77 @@
+*----------------------------------------------------------------------*
+***INCLUDE ZK_EMP_MASTE_SUBSCREEN_PBI.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  EXIT  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE exit INPUT.
+  SET SCREEN 0.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  CASE sy-ucomm.
+    WHEN 'EXIT' OR 'BACK' OR 'CANCEL'.
+      LEAVE TO SCREEN 0.
+    WHEN '&DATA_SAVE'.
+      MESSAGE 'Updating data' TYPE 'I'.
+    WHEN '&DATA_GET'.
+      PERFORM GET_DATA.
+  WHEN OTHERS.
+ENDCASE.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: PROCESS USER COMMAND
+MODULE TC1_USER_COMMAND INPUT.
+  OK_CODE = SY-UCOMM.
+  PERFORM USER_OK_TC USING    'TC1'
+                              'LT_FAMILY'
+                              ' '
+                     CHANGING OK_CODE.
+  SY-UCOMM = OK_CODE.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MODIFY TABLE
+MODULE TC2_MODIFY INPUT.
+  MODIFY LT_EXP
+    FROM LS_EXP
+    INDEX TC2-CURRENT_LINE.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODUL FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: MARK TABLE
+MODULE TC2_MARK INPUT.
+  DATA: g_TC2_wa2 like line of LT_EXP.
+    if TC2-line_sel_mode = 1
+    and LS_EXP-MARK = 'X'.
+     loop at LT_EXP into g_TC2_wa2
+       where MARK = 'X'.
+       g_TC2_wa2-MARK = ''.
+       modify LT_EXP
+         from g_TC2_wa2
+         transporting MARK.
+     endloop.
+  endif.
+  MODIFY LT_EXP
+    FROM LS_EXP
+    INDEX TC2-CURRENT_LINE
+    TRANSPORTING MARK.
+ENDMODULE.
+
+*&SPWIZARD: INPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: PROCESS USER COMMAND
+MODULE TC2_USER_COMMAND INPUT.
+  OK_CODE = SY-UCOMM.
+  PERFORM USER_OK_TC USING    'TC2'
+                              'LT_EXP'
+                              'MARK'
+                     CHANGING OK_CODE.
+  SY-UCOMM = OK_CODE.
+ENDMODULE.

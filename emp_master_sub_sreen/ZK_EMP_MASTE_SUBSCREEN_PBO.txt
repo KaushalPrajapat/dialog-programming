@@ -1,0 +1,55 @@
+*----------------------------------------------------------------------*
+***INCLUDE ZK_EMP_MASTE_SUBSCREEN_PBO.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+  SET PF-STATUS 'PF1'.
+  SET TITLEBAR 'T1'.
+
+  IF r_1 IS INITIAL AND
+     r_2 IS INITIAL AND
+     r_3 IS INITIAL AND
+     r_4 IS INITIAL.
+    r_1 = 'X'.
+  ENDIF.
+
+  IF r_1 = 'X'.
+    lv_screen = '0101'.
+  ELSEIF r_2 = 'X'.
+    lv_screen = '0102'.
+  ELSEIF r_3 = 'X'.
+    lv_screen = '0104'.
+  ELSEIF r_4 = 'X'.
+    lv_screen = '0105'.
+  ENDIF.
+
+
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: UPDATE LINES FOR EQUIVALENT SCROLLBAR
+MODULE TC1_CHANGE_TC_ATTR OUTPUT.
+  DESCRIBE TABLE LT_FAMILY LINES TC1-lines.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC1'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: GET LINES OF TABLECONTROL
+MODULE TC1_GET_LINES OUTPUT.
+  G_TC1_LINES = SY-LOOPC.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: UPDATE LINES FOR EQUIVALENT SCROLLBAR
+MODULE TC2_CHANGE_TC_ATTR OUTPUT.
+  DESCRIBE TABLE LT_EXP LINES TC2-lines.
+ENDMODULE.
+
+*&SPWIZARD: OUTPUT MODULE FOR TC 'TC2'. DO NOT CHANGE THIS LINE!
+*&SPWIZARD: GET LINES OF TABLECONTROL
+MODULE TC2_GET_LINES OUTPUT.
+  G_TC2_LINES = SY-LOOPC.
+ENDMODULE.

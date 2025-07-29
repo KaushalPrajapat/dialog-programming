@@ -1,0 +1,29 @@
+*&---------------------------------------------------------------------*
+*& Include ZK_EMP_MASTE_SUBSCREEN_TOP               - Module Pool      ZK_EMP_MASTE_SUBSCREEN
+*&---------------------------------------------------------------------*
+PROGRAM zk_emp_maste_subscreen.
+
+TABLES: zkt_emp_master.
+
+data: lt_family type STANDARD TABLE OF zkt_emp_family,
+      ls_family type zkt_emp_family,
+      lt_exp type STANDARD TABLE OF zkt_emp_exp,
+      ls_exp type zkt_emp_exp,
+      lv_screen type sy-dynnr,
+      lv_empid type zkt_emp_master-empid.
+
+data: r_1, r_2, r_3, r_4 .
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC1' ITSELF
+CONTROLS: TC1 TYPE TABLEVIEW USING SCREEN 0105.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC1'
+DATA:     G_TC1_LINES  LIKE SY-LOOPC.
+
+DATA:     OK_CODE LIKE SY-UCOMM.
+
+*&SPWIZARD: DECLARATION OF TABLECONTROL 'TC2' ITSELF
+CONTROLS: TC2 TYPE TABLEVIEW USING SCREEN 0104.
+
+*&SPWIZARD: LINES OF TABLECONTROL 'TC2'
+DATA:     G_TC2_LINES  LIKE SY-LOOPC.
